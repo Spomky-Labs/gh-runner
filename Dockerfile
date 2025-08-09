@@ -1,4 +1,3 @@
-# base image
 FROM ubuntu:24.04
 
 ARG RUNNER_VERSION
@@ -63,3 +62,8 @@ RUN /actions-runner/bin/installdependencies.sh
 # 9. Copy script
 COPY scripts/start.sh /start.sh
 RUN chmod +x /start.sh
+
+# 10. Use root so we can `su docker` in the entrypoint
+USER root
+
+ENTRYPOINT ["/start.sh"]
