@@ -3,7 +3,6 @@
 set -e
 
 GH_OWNER=$GH_OWNER
-#GH_REPOSITORY=$GH_REPOSITORY
 GH_TOKEN=$GH_TOKEN
 
 RUNNER_NAME="runner-$(head /dev/urandom | tr -dc a-z0-9 | head -c 6)"
@@ -21,14 +20,6 @@ usermod -aG docker-host docker
 su docker <<EOF
 cd /actions-runner
 
-#if [ ! -f .runner ]; then
-#  REG_TOKEN=\$(curl -sX POST \
-#    -H "Accept: application/vnd.github.v3+json" \
-#    -H "Authorization: token ${GH_TOKEN}" \
-#    https://api.github.com/repos/${GH_OWNER}/${GH_REPOSITORY}/actions/runners/registration-token | jq -r .token)
-#
-#  ./config.sh --unattended --url https://github.com/${GH_OWNER}/${GH_REPOSITORY} --token "\$REG_TOKEN" --name "\$RUNNER_NAME"
-#fi
 if [ ! -f .runner ]; then
   REG_TOKEN=\$(curl -sX POST \
     -H "Accept: application/vnd.github.v3+json" \
