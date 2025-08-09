@@ -1,4 +1,4 @@
-name: Build and Push gh-runner (ARM64 native)
+name: Build and Push gh-runner (ARM64)
 
 on:
   push:
@@ -8,33 +8,11 @@ on:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
-  RUNNER_VERSION: 2.325.0
+  RUNNER_VERSION: 2.327.1
 
 jobs:
-  prepare:
-    name: "🧰 Build Preparation"
-    runs-on: ubuntu-latest
-    outputs:
-      image_name: ${{ steps.normalize.outputs.name }}
-      short_sha: ${{ steps.sha.outputs.short }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Normalize image name
-        id: normalize
-        run: echo "name=${IMAGE_NAME,,}" >> "$GITHUB_OUTPUT"
-
-      - name: Extract short SHA
-        id: sha
-        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-
   build-arm64:
-    name: "🐳 Build ARM64 image"
-    needs: prepare
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [arm64]
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -45,11 +23,11 @@ jobs:
         run: |
           docker build \
             --build-arg RUNNER_VERSION=${{ env.RUNNER_VERSION }} \
-            -t ${{ needs.prepare.outputs.image_name }}:latest \
-            -t ${{ needs.prepare.outputs.image_name }}:${{ needs.prepare.outputs.short_sha }} \
+            -t ${{ env.IMAGE_NAME }}:latest \
+            -t ${{ env.IMAGE_NAME }}:${{ github.sha }} \
             .
 
       - name: Push image
         run: |
-          docker push ${{ needs.prepare.outputs.image_name }}:latest
-          docker push ${{ needs.prepare.outputs.image_name }}:${{ needs.prepare.outputs.short_sha }}
+          docker push ${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
