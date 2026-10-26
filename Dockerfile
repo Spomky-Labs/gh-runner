@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ARG RUNNER_VERSION
 ENV DEBIAN_FRONTEND=noninteractive
@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 LABEL Author="Florent Morselli"
 LABEL Email="florent.morselli@spomky-labs.com"
 LABEL GitHub="https://github.com/Spomky"
-LABEL BaseImage="ubuntu:24.04"
+LABEL BaseImage="ubuntu:26.04"
 LABEL RunnerVersion=${RUNNER_VERSION}
 
 # 1. Update base system and create a non-root user
@@ -49,9 +49,9 @@ RUN echo "deb [arch=arm64 signed-by=/usr/share/keyrings/docker-archive-keyring.g
 RUN apt-get update && \
     apt-get install -y --no-install-recommends docker-ce-cli
 
-# 7. Download GitHub Actions runner
+# 7. Download GitHub Actions runner (an unknown version fails here, not in tar)
 RUN mkdir -p /actions-runner && \
-    curl -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-arm64-${RUNNER_VERSION}.tar.gz \
+    curl -fL https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-arm64-${RUNNER_VERSION}.tar.gz \
     -o /actions-runner/runner.tar.gz && \
     tar -xzf /actions-runner/runner.tar.gz -C /actions-runner && \
     rm /actions-runner/runner.tar.gz

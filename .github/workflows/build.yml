@@ -6,11 +6,15 @@ on:
       - main
     tags:
       - '*'
+  pull_request:
+  schedule:
+    # Once a month: the latest runner release and the security updates of the base image.
+    # GitHub refuses to register a runner older than its minimum version.
+    - cron: '23 2 1 * *'
   workflow_dispatch:
 
 env:
   IMAGE_NAME: ghcr.io/spomky-labs/gh-runner
-  RUNNER_VERSION: 2.327.1
 
 jobs:
   build:
@@ -24,15 +28,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Find the latest runner release
+        id: runner
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "version=$(gh api repos/actions/runner/releases/latest --jq '.tag_name | ltrimstr("v")')" >> "$GITHUB_OUTPUT"
+
+      - name: Build image (ARM64)
+        run: |
+          docker build --pull \
+            --build-arg RUNNER_VERSION=${{ steps.runner.outputs.version }} \
+            -t $IMAGE_NAME:latest \
+            -t $IMAGE_NAME:${{ steps.runner.outputs.version }} \
+            .
+
+      # A pull request builds the image and publishes nothing
       - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push image (ARM64)
+      - name: Push image
+        if: github.event_name != 'pull_request'
         run: |
-          IMAGE=ghcr.io/spomky-labs/gh-runner
-          docker build --build-arg RUNNER_VERSION=2.327.1 -t $IMAGE:latest .
-          docker push $IMAGE:latest
+          docker push $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:${{ steps.runner.outputs.version }}
