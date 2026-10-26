@@ -50,6 +50,30 @@ fi
 # for container jobs run as, so that what a job container writes in the workspace belongs to the runner.
 chown -R docker:docker "$RUNNER_DIR"
 
+# Without the host's socket, the container runs a Docker daemon of its own, which the jobs drive: their
+# containers, networks, volumes and published ports stay in this container. A container may run one only
+# under a runtime that allows it, such as Sysbox.
+dockerd_pid=
+if [ ! -S /var/run/docker.sock ]; then
+  dockerd >/var/log/dockerd.log 2>&1 &
+  dockerd_pid=$!
+  for _ in $(seq 1 60); do
+    if docker info >/dev/null 2>&1; then
+      break
+    fi
+    if ! kill -0 "$dockerd_pid" 2>/dev/null; then
+      cat /var/log/dockerd.log >&2
+      echo "The Docker daemon of this container stopped: mount the host's socket, or run the container under a runtime such as Sysbox" >&2
+      exit 1
+    fi
+    sleep 1
+  done
+  if ! docker info >/dev/null 2>&1; then
+    echo "The Docker daemon of this container did not answer within 60 seconds" >&2
+    exit 1
+  fi
+fi
+
 # Give the docker user the group of the Docker socket, whatever its name in the image
 if [ -S /var/run/docker.sock ]; then
   DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
@@ -97,5 +121,11 @@ done
 echo "Removing runner..."
 remove_token=$(runner_token remove) && "${as_runner[@]}" ./config.sh remove --unattended --token "$remove_token" ||
   echo "${RUNNER_NAME} could not be removed: GitHub removes an offline runner after 14 days" >&2
+
+# The daemon of the container stops its containers before it exits
+if [ -n "$dockerd_pid" ]; then
+  kill -TERM "$dockerd_pid" 2>/dev/null || true
+  wait "$dockerd_pid" || true
+fi
 
 exit "$status"

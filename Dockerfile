@@ -46,7 +46,7 @@ RUN echo 'docker ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/docker && \
 RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
     gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
-# 6. Add Docker’s APT repository (for the CLI and its plugins)
+# 6. Add Docker’s APT repository
 RUN echo "deb [arch=arm64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
     https://download.docker.com/linux/ubuntu \
     $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" \
@@ -59,9 +59,10 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     echo "deb [arch=arm64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
     > /etc/apt/sources.list.d/github-cli.list
 
-# 8. Install the Docker CLI with its Compose and Buildx plugins (no daemon), and the GitHub CLI
+# 8. Install Docker with its Compose and Buildx plugins, and the GitHub CLI. The daemon runs only when no socket
+#    of the host is mounted (scripts/start.sh)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin docker-buildx-plugin gh
+    apt-get install -y --no-install-recommends docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-buildx-plugin gh
 
 # 9. Download GitHub Actions runner (an unknown version fails here, not in tar)
 RUN mkdir -p /actions-runner && \
