@@ -19,6 +19,7 @@ RUN apt-get install -y --no-install-recommends \
     curl \
     gnupg \
     nodejs \
+    sudo \
     wget \
     unzip \
     vim \
@@ -35,35 +36,48 @@ RUN apt-get install -y --no-install-recommends \
 # 3. Clean APT cache to reduce image size
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 4. Add Docker’s official GPG key
+# 4. Passwordless sudo for the runner user, as on the runners GitHub hosts: actions such as setup-php
+#    install packages with it on a self-hosted runner
+RUN echo 'docker ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/docker && \
+    chmod 0440 /etc/sudoers.d/docker && \
+    visudo -cf /etc/sudoers.d/docker
+
+# 5. Add Docker’s official GPG key
 RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
     gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
-# 5. Add Docker’s APT repository (for CLI only)
+# 6. Add Docker’s APT repository (for the CLI and its plugins)
 RUN echo "deb [arch=arm64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
     https://download.docker.com/linux/ubuntu \
     $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" \
     > /etc/apt/sources.list.d/docker.list
 
-# 6. Install Docker CLI only (no daemon)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends docker-ce-cli
+# 7. Add the APT repository of the GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    -o /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    echo "deb [arch=arm64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    > /etc/apt/sources.list.d/github-cli.list
 
-# 7. Download GitHub Actions runner (an unknown version fails here, not in tar)
+# 8. Install the Docker CLI with its Compose and Buildx plugins (no daemon), and the GitHub CLI
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin docker-buildx-plugin gh
+
+# 9. Download GitHub Actions runner (an unknown version fails here, not in tar)
 RUN mkdir -p /actions-runner && \
     curl -fL https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-arm64-${RUNNER_VERSION}.tar.gz \
     -o /actions-runner/runner.tar.gz && \
     tar -xzf /actions-runner/runner.tar.gz -C /actions-runner && \
     rm /actions-runner/runner.tar.gz
 
-# 8. Install runner dependencies
+# 10. Install runner dependencies
 RUN /actions-runner/bin/installdependencies.sh
 
-# 9. Copy script
+# 11. Copy script
 COPY scripts/start.sh /start.sh
 RUN chmod +x /start.sh
 
-# 10. Use root so we can `su docker` in the entrypoint
+# 12. Use root so we can `su docker` in the entrypoint
 USER root
 
 ENTRYPOINT ["/start.sh"]

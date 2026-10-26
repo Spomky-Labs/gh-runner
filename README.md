@@ -1,6 +1,6 @@
 # gh-runner
 
-A container image for a self-hosted GitHub Actions runner registered with an organisation, published as `ghcr.io/spomky-labs/gh-runner`. The image holds the Docker CLI: with the host's Docker socket mounted, the jobs run `docker` commands against the host's daemon.
+A container image for a self-hosted GitHub Actions runner registered with an organisation, published as `ghcr.io/spomky-labs/gh-runner`. The image holds the Docker CLI with its Compose and Buildx plugins, and the GitHub CLI: with the host's Docker socket mounted, the jobs run `docker`, `docker compose` and `docker buildx` commands against the host's daemon, and `gh` with the token a workflow gives it.
 
 The runner is named `runner-` followed by six random characters. It registers when the container starts and removes its registration when the container stops.
 
@@ -24,7 +24,7 @@ With the host's Docker socket, the containers of a job (`container:`, `services:
 
 `RUNNER_DIR` names a host directory mounted at the same path in the container. On every start the directory is emptied, the runner is copied into it (about 700 MB) and runs from there. The directory must exist on every node the service can run on, and holds one runner only.
 
-The runner runs as the `docker` user, uid 1001, with or without `RUNNER_DIR`. It is the uid of the runners GitHub hosts, which the images made for container jobs run as (`USER 1001`): what such a job writes in the workspace belongs to the runner, and the next checkout removes it. A job container that runs as root and writes in the workspace leaves files the runner cannot remove until it starts again and `RUNNER_DIR` is emptied.
+The runner runs as the `docker` user, uid 1001, with or without `RUNNER_DIR`. It is the uid of the runners GitHub hosts, which the images made for container jobs run as (`USER 1001`): what such a job writes in the workspace belongs to the runner, and the next checkout removes it. Like the runners GitHub hosts, that user has passwordless `sudo`, which actions such as `shivammathur/setup-php` need on a self-hosted runner to install packages; a job that can reach the Docker socket is root on the host already. A job container that runs as root and writes in the workspace leaves files the runner cannot remove until it starts again and `RUNNER_DIR` is emptied.
 
 ```yaml
 services:
