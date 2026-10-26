@@ -9,10 +9,10 @@ LABEL GitHub="https://github.com/Spomky"
 LABEL BaseImage="ubuntu:26.04"
 LABEL RunnerVersion=${RUNNER_VERSION}
 
-# 1. Update base system and create a non-root user
+# 1. Update base system and create the user the runner runs as, uid 1001 like the runners GitHub hosts
 RUN apt-get update -y && \
     apt-get upgrade -y && \
-    useradd -m -s /bin/bash docker
+    useradd -m -u 1001 -s /bin/bash docker
 
 # 2. Install core system packages (including gnupg for keyring management)
 RUN apt-get install -y --no-install-recommends \

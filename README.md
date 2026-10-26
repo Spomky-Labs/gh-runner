@@ -22,7 +22,9 @@ Swarm and Compose stop a container with SIGTERM and kill it 10 seconds later. Th
 
 With the host's Docker socket, the containers of a job (`container:`, `services:`, `docker run -v`) are created by the host's daemon, which reads on the host every path it is asked to mount. By default, the runner lives in `/actions-runner` inside its own container, a path the host does not have: a job with `container:` fails at its first action, and `docker run -v "$PWD:/project"` mounts an empty directory.
 
-`RUNNER_DIR` names a host directory mounted at the same path in the container. On every start the directory is emptied, the runner is copied into it (about 700 MB) and runs from there, as root, since the containers of the jobs write there as root and the next checkout has to remove what they left. The directory must exist on every node the service can run on, and holds one runner only.
+`RUNNER_DIR` names a host directory mounted at the same path in the container. On every start the directory is emptied, the runner is copied into it (about 700 MB) and runs from there. The directory must exist on every node the service can run on, and holds one runner only.
+
+The runner runs as the `docker` user, uid 1001, with or without `RUNNER_DIR`. It is the uid of the runners GitHub hosts, which the images made for container jobs run as (`USER 1001`): what such a job writes in the workspace belongs to the runner, and the next checkout removes it. A job container that runs as root and writes in the workspace leaves files the runner cannot remove until it starts again and `RUNNER_DIR` is emptied.
 
 ```yaml
 services:
