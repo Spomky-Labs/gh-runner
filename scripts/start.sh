@@ -28,26 +28,10 @@ runner_env=(env --default-signal=INT -u GH_TOKEN -u GH_TOKEN_FILE)
 
 if [ -z "${RUNNER_DIR:-}" ]; then
   RUNNER_DIR=/actions-runner
-  chown -R docker:docker "$RUNNER_DIR"
-
-  # Give the docker user the group of the Docker socket, whatever its name in the image
-  if [ -S /var/run/docker.sock ]; then
-    DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
-    DOCKER_GROUP=$(getent group "$DOCKER_GID" | cut -d: -f1)
-    if [ -z "$DOCKER_GROUP" ]; then
-      DOCKER_GROUP=docker-host
-      groupadd -g "$DOCKER_GID" "$DOCKER_GROUP"
-    fi
-    usermod -aG "$DOCKER_GROUP" docker
-  fi
-
-  as_runner=(setpriv --reuid=docker --regid=docker --init-groups
-    "${runner_env[@]}" HOME=/home/docker USER=docker LOGNAME=docker SHELL=/bin/bash)
 else
   # The host's Docker daemon reads on the host every path the runner mounts into a job's containers
-  # ("_work", "externals"). RUNNER_DIR is a host directory mounted at the same path: the runner is
-  # copied there on every start and runs from there, as root, since the jobs' containers write there
-  # as root and the next checkout has to remove what they left.
+  # ("_work", "externals"). RUNNER_DIR is a host directory mounted at the same path: it is emptied and
+  # the runner is copied there on every start, which also clears what the jobs of the previous run left.
   case "$RUNNER_DIR" in
     / | /actions-runner | /actions-runner/* | [!/]*)
       echo "RUNNER_DIR must be an absolute path other than / and /actions-runner" >&2
@@ -60,10 +44,25 @@ else
   fi
   find "$RUNNER_DIR" -mindepth 1 -delete
   cp -a /actions-runner/. "$RUNNER_DIR"
-  export RUNNER_ALLOW_RUNASROOT=1
-
-  as_runner=("${runner_env[@]}")
 fi
+
+# The runner runs as the docker user, uid 1001: the uid of the runners GitHub hosts, which the images made
+# for container jobs run as, so that what a job container writes in the workspace belongs to the runner.
+chown -R docker:docker "$RUNNER_DIR"
+
+# Give the docker user the group of the Docker socket, whatever its name in the image
+if [ -S /var/run/docker.sock ]; then
+  DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
+  DOCKER_GROUP=$(getent group "$DOCKER_GID" | cut -d: -f1)
+  if [ -z "$DOCKER_GROUP" ]; then
+    DOCKER_GROUP=docker-host
+    groupadd -g "$DOCKER_GID" "$DOCKER_GROUP"
+  fi
+  usermod -aG "$DOCKER_GROUP" docker
+fi
+
+as_runner=(setpriv --reuid=docker --regid=docker --init-groups
+  "${runner_env[@]}" HOME=/home/docker USER=docker LOGNAME=docker SHELL=/bin/bash)
 cd "$RUNNER_DIR"
 
 # A container restarted in place still holds the registration of its previous run
